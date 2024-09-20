@@ -24,7 +24,7 @@ the computers (this is probably a little easier, though it’s important to get 
 ## Configuring Git
 
 You should also tell your Git installation your name and email, if you haven’t already. This will ensure that you are recorded as the author 
-of your code. For the `user.email` configuration, use your Harvard email.
+of your code. For the `user.email` configuration, use your email.
 
 ```bash
 $ git config --global user.name "FIRSTNAME LASTNAME"
@@ -42,20 +42,20 @@ button on the top right. This will create your own copy of this repository.
 
 ## Working with your own fork
 
-You should now have your own copy of the software-development-deliverable-2024 repository titled `<username>/software-development-deliverable-2024`.
+You should now have your own copy of the sw-challenge-fall-2024 repository titled `<username>/sw-challenge-fall-2024`.
 
 **To create a local copy of this repository on your computer**, copy the repository's SSH link by clicking the green Code button. This link 
-should look like `git@github.com:<username>/software-development-deliverable-2024`. Next, clone the repository to your computer:
+should look like `git@github.com:<username>/sw-challenge-fall-2024`. Next, clone the repository to your computer:
 ```bash
-$ git clone git@github.com:<username>/software-development-deliverable-2024.git
+$ git clone git@github.com:<username>/sw-challenge-fall-2024.git
 ```
 
-**Next, add `cardinal-trading-group/software-development-deliverable-2024` as a remote repository.** This will allow you to fetch future changes we may make. Make sure to 
+**Next, add `cardinal-trading-group/sw-challenge-fall-2024` as a remote repository.** This will allow you to fetch future changes we may make. Make sure to 
 also disable pushing to the remote.
 
 ```bash
-$ cd software-development-deliverable-2024
-$ git remote add upstream git@github.com:cardinal-trading-group/software-development-deliverable-2024
+$ cd sw-challenge-fall-2024
+$ git remote add upstream git@github.com:cardinal-trading-group/sw-challenge-fall-2024
 $ git remote set-url --push upstream DISABLE
 ```
 
@@ -68,9 +68,9 @@ $ git remote -v
 and should see
 
 ```bash
-origin  git@github.com:<username>/software-development-deliverable-2024.git (fetch)
-origin  git@github.com:<username>/software-development-deliverable-2024.git (push)
-upstream  git@github.com:cardinal-trading-group/software-development-deliverable-2024.git (fetch)
+origin  git@github.com:<username>/sw-challenge-fall-2024.git (fetch)
+origin  git@github.com:<username>/sw-challenge-fall-2024.git (push)
+upstream  git@github.com:cardinal-trading-group/sw-challenge-fall-2024.git (fetch)
 upstream  DISABLE (push)
 ```
 
