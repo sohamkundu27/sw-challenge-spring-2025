@@ -84,7 +84,7 @@ class DataProcessor:
 
             # Check for negetive numbers
             price = float(price)
-            if price < 0:
+            if price < 0 and float(size) < 0:
                 continue
 
             cleaned_data.append({'Timestamp': timestamp, 'Price': price, 'Size': size})
@@ -139,7 +139,6 @@ class DataProcessor:
             writer.writerows(ohlcv)
 
         print(f"OHLCV data written to {output_file}.")
-
         print(f"Generated {len(ohlcv)} OHLCV bars.")
 
     def _parse_interval(self, interval_str):
