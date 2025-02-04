@@ -3,36 +3,36 @@ import csv
 import threading
 from datetime import datetime, timedelta
 from queue import Queue
+import statistics
 
-# These are the constants for trading hours, they are used through out
+# These are the constants for trading hours
 TRADING_START = datetime.strptime("09:30", "%H:%M").time()
 TRADING_END = datetime.strptime("16:00", "%H:%M").time()
 
-# This is the queue to store loaded data from CSV files
+# Queue to store loaded data from CSV files
 data_queue = Queue()
 
-# This is the class to handle all the functions
+# Class to handle all the functions
 class DataProcessor:
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.all_data = []
 
     def load_csv_files(self):
-        # Iterates through each file in data_dir and stores them in a list named files
+        """Loads trade data from CSV files in the specified directory using multithreading."""
         files = [f for f in os.listdir(self.data_dir)]
-        # Threads worker function
+
         def worker(file):
+            """Thread worker function to load CSV data into a queue."""
             file_path = os.path.join(self.data_dir, file)
             try:
                 with open(file_path, 'r') as csvfile:
                     reader = csv.DictReader(csvfile)
                     for row in reader:
-                        # Adding each row of trade data to the queue
-                        data_queue.put(row)
+                        data_queue.put(row)  # Add each row of trade data to the queue
             except Exception as e:
                 print(f"Error loading {file}: {e}")
 
-        # Create and start threads for each file
         threads = []
         for file in files:
             thread = threading.Thread(target=worker, args=(file,))
@@ -47,60 +47,70 @@ class DataProcessor:
         print(f"Finished loading {len(files)} files.")
 
     def clean_data(self):
-        # Clean data by removing missing values, duplicates, prices that are negetive, and timestamps that aren't in regular trading hours
+        """Cleans data by removing missing values, duplicates, outliers, and invalid timestamps."""
         cleaned_data = []
-        duplicateChecker = set()
+        duplicate_checker = set()
+        price_samples = []  # Stores prices to compute median price dynamically
 
         while not data_queue.empty():
             row = data_queue.get()
 
-            # Collecting each piece of data
+            # Extract individual data fields
             timestamp = row['Timestamp']
             price = row['Price']
             size = row['Size']
 
-            # Skiping rows with missing values
+            # Skip rows with missing values
             if not timestamp or not price or not size:
                 continue
 
-            # Convert timestamp to datetime and check trading hours
             try:
-                # Parsing timestamp to include milliseconds
+                # Parse timestamp with milliseconds
                 dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-                
+
+                # Filter out trades outside regular trading hours
                 if not (TRADING_START <= dt.time() <= TRADING_END):
-                    # Skip rows outside regular trading hours
                     continue
             except ValueError:
-                # Print invalid timestamp if there's an issue so we can debug
                 print(f"Invalid timestamp format: {timestamp}")
                 continue
 
-            # Check for duplicates
-            if (timestamp) in duplicateChecker:
-                print(timestamp)
-                continue
-            duplicateChecker.add((timestamp))
-
-            # Check for negetive numbers
+            # Convert price and size to numeric values
             price = float(price)
-            if price < 0 and float(size) < 0:
+            size = int(size)
+
+            # Skip negative price or size values
+            if price < 0 or size < 0:
                 continue
+
+            # Check for duplicates (same timestamp)
+            if timestamp in duplicate_checker:
+                continue
+            duplicate_checker.add(timestamp)
+
+            # Collect samples of valid prices for outlier detection
+            if len(price_samples) >= 50:
+                median_price = statistics.median(price_samples[-50:])  # Use last 50 prices
+                if price < 0.1 * median_price:  # Price is an extreme outlier (10% of median)
+                    print(f"Removed outlier: {timestamp}, Price: {price}, Size: {size}")
+                    continue
+
+            price_samples.append(price)
 
             cleaned_data.append({'Timestamp': timestamp, 'Price': price, 'Size': size})
 
         self.all_data = cleaned_data
 
-        # Print how many rows remain after the checks
         print(f"Cleaned data contains {len(self.all_data)} rows.")
 
     def aggregate_ohlcv(self, interval):
+        """Aggregates cleaned trade data into OHLCV format based on a given time interval."""
         ohlcv = []
         interval_seconds = self._parse_interval(interval)
         current_interval_start = None
         current_interval_data = []
 
-        # Sort data by timestamp 
+        # Sort data by timestamp
         self.all_data.sort(key=lambda row: row['Timestamp'])
 
         for row in self.all_data:
@@ -114,16 +124,12 @@ class DataProcessor:
                 current_interval_data.append(row)
                 continue
 
-            # If the current row belongs to the next interval than we will add the current data to OHLCV and move on
+            # If the current row belongs to the next interval, finalize current OHLCV data
             if (dt - current_interval_start).total_seconds() >= interval_seconds:
-                # Process and append the current interval's OHLCV data
                 ohlcv.append(self._process_interval_data(current_interval_data))
-
-                # Reset for the next interval
-                current_interval_start = dt
+                current_interval_start = dt  # Start new interval
                 current_interval_data = [row]
             else:
-                # Keep adding data to the current interval
                 current_interval_data.append(row)
 
         # Process any remaining data for the final interval
@@ -131,7 +137,7 @@ class DataProcessor:
             ohlcv.append(self._process_interval_data(current_interval_data))
 
         # Output OHLCV data to CSV
-        output_file = '1h30mintervaloutput.csv'
+        output_file = '15mintervaloutput.csv'
         with open(output_file, 'w', newline='') as csvfile:
             fieldnames = ['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -142,6 +148,7 @@ class DataProcessor:
         print(f"Generated {len(ohlcv)} OHLCV bars.")
 
     def _parse_interval(self, interval_str):
+        """Parses time intervals into seconds (e.g., '1h30m' -> 5400 seconds)."""
         time_map = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
         total_seconds = 0
         num = ''
@@ -154,7 +161,7 @@ class DataProcessor:
         return total_seconds
 
     def _process_interval_data(self, data):
-        # Puts the OHCLV data in the correct format
+        """Processes and formats OHLCV data from a list of trades within a time interval."""
         open_price = float(data[0]['Price'])
         close_price = float(data[-1]['Price'])
         high_price = max(float(row['Price']) for row in data)
@@ -166,16 +173,12 @@ class DataProcessor:
 
 if __name__ == "__main__":
     processor = DataProcessor(data_dir="data")
-    
+
     # Load the CSV files
     processor.load_csv_files()
-    # These are instance methods
-    # Clean the data
+
+    # Clean the data (removes missing values, duplicates, and incorrect prices)
     processor.clean_data()
 
-    # Calling the function to format and make the OHLCV output
-#   processor.aggregate_ohlcv('4s')
-#   processor.aggregate_ohlcv('15m')
-#   processor.aggregate_ohlcv('2h')
-#   processor.aggregate_ohlcv('1d')
-    processor.aggregate_ohlcv('1h30m')
+    # Aggregate OHLCV data
+    processor.aggregate_ohlcv('15m')
