@@ -39,7 +39,7 @@ class DataProcessor:
             threads.append(thread)
             thread.start()
 
-        # Wait for all threads to finish
+        # here we do multithreading
         for thread in threads:
             thread.join()
 
@@ -47,15 +47,16 @@ class DataProcessor:
         print(f"Finished loading {len(files)} files.")
 
     def clean_data(self):
-        """Cleans data by removing missing values, duplicates, outliers, and invalid timestamps."""
+        #Cleans data by removing missing values, duplicates, outliers, and invalid timestamps, and negetive numbers
+
         cleaned_data = []
         duplicate_checker = set()
-        price_samples = []  # Stores prices to compute median price dynamically
+        price_samples = []  # here we store prices to compute median price dynamically
 
         while not data_queue.empty():
             row = data_queue.get()
 
-            # Extract individual data fields
+            # These are the the individual data fields
             timestamp = row['Timestamp']
             price = row['Price']
             size = row['Size']
@@ -65,10 +66,10 @@ class DataProcessor:
                 continue
 
             try:
-                # Parse timestamp with milliseconds
+                # Get timestamp with milliseconds
                 dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
 
-                # Filter out trades outside regular trading hours
+                # Here we filter out trades outside regular trading hours
                 if not (TRADING_START <= dt.time() <= TRADING_END):
                     continue
             except ValueError:
@@ -90,8 +91,8 @@ class DataProcessor:
 
             # Collect samples of valid prices for outlier detection
             if len(price_samples) >= 50:
-                median_price = statistics.median(price_samples[-50:])  # Use last 50 prices
-                if price < 0.1 * median_price:  # Price is an extreme outlier (10% of median)
+                median_price = statistics.median(price_samples[-50:])  # Use last 50 prices to sample
+                if price < 0.1 * median_price:  # if price is an extreme outlier (10% of median)
                     print(f"Removed outlier: {timestamp}, Price: {price}, Size: {size}")
                     continue
 
@@ -104,7 +105,7 @@ class DataProcessor:
         print(f"Cleaned data contains {len(self.all_data)} rows.")
 
     def aggregate_ohlcv(self, interval):
-        """Aggregates cleaned trade data into OHLCV format based on a given time interval."""
+        # Here we aggregates cleaned trade data into OHLCV format based on a given time interval.
         ohlcv = []
         interval_seconds = self._parse_interval(interval)
         current_interval_start = None
@@ -118,13 +119,13 @@ class DataProcessor:
             price = float(row['Price'])
             size = int(row['Size'])
 
-            # Initialize the first interval
+            # initialize the first interval
             if current_interval_start is None:
                 current_interval_start = dt
                 current_interval_data.append(row)
                 continue
 
-            # If the current row belongs to the next interval, finalize current OHLCV data
+            # if the current row is in the next interval, finalize current OHLCV data
             if (dt - current_interval_start).total_seconds() >= interval_seconds:
                 ohlcv.append(self._process_interval_data(current_interval_data))
                 current_interval_start = dt  # Start new interval
@@ -132,11 +133,11 @@ class DataProcessor:
             else:
                 current_interval_data.append(row)
 
-        # Process any remaining data for the final interval
+        # add any remaining data for the final interval
         if current_interval_data:
             ohlcv.append(self._process_interval_data(current_interval_data))
 
-        # Output OHLCV data to CSV
+        #Output OHLCV data to CSV
         output_file = '15mintervaloutput.csv'
         with open(output_file, 'w', newline='') as csvfile:
             fieldnames = ['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -148,7 +149,7 @@ class DataProcessor:
         print(f"Generated {len(ohlcv)} OHLCV bars.")
 
     def _parse_interval(self, interval_str):
-        """Parses time intervals into seconds (e.g., '1h30m' -> 5400 seconds)."""
+        # here we parse time intervals into seconds 
         time_map = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
         total_seconds = 0
         num = ''
@@ -174,11 +175,8 @@ class DataProcessor:
 if __name__ == "__main__":
     processor = DataProcessor(data_dir="data")
 
-    # Load the CSV files
     processor.load_csv_files()
 
-    # Clean the data (removes missing values, duplicates, and incorrect prices)
     processor.clean_data()
 
-    # Aggregate OHLCV data
     processor.aggregate_ohlcv('15m')
