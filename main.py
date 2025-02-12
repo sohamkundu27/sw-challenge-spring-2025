@@ -19,11 +19,11 @@ class DataProcessor:
         self.all_data = []
 
     def load_csv_files(self):
-        """Loads trade data from CSV files in the specified directory using multithreading."""
+        # Loads trade data from CSV files in the specified directory using multithreading
         files = [f for f in os.listdir(self.data_dir)]
 
         def worker(file):
-            """Thread worker function to load CSV data into a queue."""
+            #The thread worker function to load CSV data into a queue
             file_path = os.path.join(self.data_dir, file)
             try:
                 with open(file_path, 'r') as csvfile:
@@ -162,7 +162,7 @@ class DataProcessor:
         return total_seconds
 
     def _process_interval_data(self, data):
-        """Processes and formats OHLCV data from a list of trades within a time interval."""
+        # here we process and format OHLCV data from a list of trades within a time interval
         open_price = float(data[0]['Price'])
         close_price = float(data[-1]['Price'])
         high_price = max(float(row['Price']) for row in data)
